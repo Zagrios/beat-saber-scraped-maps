@@ -1,0 +1,66 @@
+name: Beat Saber Maps Scraper Workflow
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */2 * * *'
+
+permissions:
+  contents: write
+
+jobs:
+  process:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Download Latest Release
+      uses: robinraju/release-downloader@v1.9
+      with:
+        repository: "Zagrios/beat-saber-maps-scraper"
+        latest: true
+        file: "beat-saber-maps-scraper.exe"
+        token: ${{ secrets.GH_TOKEN }}
+
+    - name: Execute Script
+      run: .\beat-saber-maps-scraper.exe
+
+    - name: Configure Git User
+      run: |
+          git config user.email "action@github.com"
+          git config user.name "GitHub Action"
+      shell: cmd
+
+    - name: Reset Git History to the previous Commit
+      run: |
+        git reset --hard HEAD~
+      shell: cmd
+
+    - name: Move GZipped Files from Out to Root Directory
+      run: |
+        Move-Item out/*.gz ./
+      shell: powershell
+
+    - name: Delete Exe
+      run: |
+        Remove-Item beat-saber-maps-scraper.exe
+
+    - name: Delete Out Directory
+      run: |
+        Remove-Item -Path out -Recurse -Force
+      shell: powershell
+
+    - name: Add Generated Files
+      run: |
+        git add .
+        git commit -m "Add generated files"
+      shell: cmd
+
+    - name: Force Push to Main Branch
+      run: |
+        git push origin master --force
+      shell: cmd
